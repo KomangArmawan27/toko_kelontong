@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/dashboard_card.dart';
+import '../../widgets/app_drawer.dart';
 
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
@@ -11,38 +12,7 @@ class DashboardScreen extends StatelessWidget {
         title: const Text('Toko Kelontong'),
       ),
 
-      drawer: Drawer(
-        child: ListView(
-          children: const [
-            DrawerHeader(
-              child: Text(
-                'Menu',
-                style: TextStyle(fontSize: 24),
-              ),
-            ),
-
-            ListTile(
-              leading: Icon(Icons.dashboard),
-              title: Text('Dashboard'),
-            ),
-
-            ListTile(
-              leading: Icon(Icons.inventory),
-              title: Text('Stock Management'),
-            ),
-
-            ListTile(
-              leading: Icon(Icons.attach_money),
-              title: Text('Cash Management'),
-            ),
-
-            ListTile(
-              leading: Icon(Icons.category),
-              title: Text('Master Item'),
-            ),
-          ],
-        ),
-      ),
+      drawer: const AppDrawer(),
 
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -54,25 +24,25 @@ class DashboardScreen extends StatelessWidget {
             DashboardCard(
               title: 'Stock',
               icon: Icons.inventory,
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/stock'),
             ),
 
             DashboardCard(
               title: 'Cash',
               icon: Icons.attach_money,
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/cash'),
             ),
 
             DashboardCard(
               title: 'Master Item',
               icon: Icons.category,
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/items'),
             ),
 
             DashboardCard(
               title: 'Reports',
               icon: Icons.bar_chart,
-              onTap: () {},
+              onTap: () => Navigator.pushNamed(context, '/reports'),
             ),
           ],
         ),
