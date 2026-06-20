@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../models/app_user.dart';
+
 class ApiException implements Exception {
   final String message;
   final int? statusCode;
@@ -20,8 +22,29 @@ class ApiClient {
   static const String baseUrl = 'http://127.0.0.1:8000/';
 
   String? _token;
+  AppUser? _currentUser;
 
   bool get isAuthenticated => _token != null && _token!.isNotEmpty;
+
+  AppUser? get currentUser => _currentUser;
+
+  String? get currentRole => _currentUser?.role;
+
+  bool get isShopOwner => _currentUser?.isShopOwner ?? false;
+
+  bool get isShopKeeper => _currentUser?.isShopKeeper ?? false;
+
+  bool get isCustomer => _currentUser?.isCustomer ?? false;
+
+  bool get canManageItems => isShopOwner;
+
+  bool get canManageCashTransactions => isShopOwner || isShopKeeper;
+
+  bool get canManageStockMovements => isShopOwner || isShopKeeper;
+
+  bool get canViewReports => isShopOwner;
+
+  bool get canPurchaseItems => isShopOwner || isCustomer;
 
   Map<String, String> get _headers => {
         'Accept': 'application/json',
@@ -34,7 +57,7 @@ class ApiClient {
       'email': email,
       'password': password,
     });
-    _saveToken(data);
+    _saveSession(data);
     return data;
   }
 
@@ -49,7 +72,7 @@ class ApiClient {
       'password': password,
       'password_confirmation': password,
     });
-    _saveToken(data);
+    _saveSession(data);
     return data;
   }
 
@@ -62,6 +85,27 @@ class ApiClient {
       }
     }
     _token = null;
+    _currentUser = null;
+  }
+
+  Future<Map<String, dynamic>> me() async {
+    final data = await get('api/auth/me');
+    _saveUser(data);
+    return data;
+  }
+
+  Future<Map<String, dynamic>> purchaseItem(
+    int itemId, {
+    required double quantity,
+    String? notes,
+    DateTime? transactionDate,
+  }) {
+    return post('api/items/$itemId/purchase', {
+      'quantity': quantity,
+      if (transactionDate != null)
+        'transaction_date': transactionDate.toIso8601String().split('T').first,
+      if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+    });
   }
 
   Future<Map<String, dynamic>> get(String path) => _send('GET', path);
@@ -139,5 +183,34 @@ class ApiClient {
     if (token != null) {
       _token = token.toString();
     }
+  }
+
+  void _saveUser(Map<String, dynamic> data) {
+    final user = _extractUser(data);
+    if (user != null) {
+      _currentUser = user;
+    }
+  }
+
+  void _saveSession(Map<String, dynamic> data) {
+    _saveToken(data);
+    _saveUser(data);
+  }
+
+  AppUser? _extractUser(Map<String, dynamic> data) {
+    final directUser = data['user'];
+    if (directUser is Map<String, dynamic>) {
+      return AppUser.fromJson(directUser);
+    }
+
+    final nestedData = data['data'];
+    if (nestedData is Map<String, dynamic>) {
+      final nestedUser = nestedData['user'];
+      if (nestedUser is Map<String, dynamic>) {
+        return AppUser.fromJson(nestedUser);
+      }
+    }
+
+    return null;
   }
 }

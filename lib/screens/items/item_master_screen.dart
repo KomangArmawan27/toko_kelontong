@@ -17,10 +17,20 @@ class _ItemMasterScreenState extends State<ItemMasterScreen> {
   bool _isLoading = true;
   String? _error;
 
+  bool get _canManageItems => ApiClient.instance.canManageItems;
+
+  bool get _canPurchaseItems => ApiClient.instance.canPurchaseItems;
+
   @override
   void initState() {
     super.initState();
     _refresh();
+  }
+
+  String get _title {
+    if (_canManageItems) return 'Master Item';
+    if (_canPurchaseItems) return 'Shop Items';
+    return 'Items';
   }
 
   Future<List<ItemModel>> _load() async {
@@ -50,6 +60,7 @@ class _ItemMasterScreenState extends State<ItemMasterScreen> {
   }
 
   Future<void> _openForm([ItemModel? item]) async {
+    if (!_canManageItems) return;
     final saved = await showDialog<bool>(
       context: context,
       builder: (_) => _ItemFormDialog(item: item),
@@ -59,7 +70,38 @@ class _ItemMasterScreenState extends State<ItemMasterScreen> {
     }
   }
 
+  Future<void> _purchase(ItemModel item) async {
+    if (!ApiClient.instance.canPurchaseItems || item.id == null) return;
+
+    final request = await showDialog<_PurchaseRequest>(
+      context: context,
+      builder: (_) => _PurchaseDialog(item: item),
+    );
+    if (request == null) return;
+
+    try {
+      final response = await ApiClient.instance.purchaseItem(
+        item.id!,
+        quantity: request.quantity,
+        notes: request.notes,
+      );
+      final totalAmount = _asDouble(dataMap(response)['total_amount']);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Purchase completed for Rp ${totalAmount.toStringAsFixed(0)}')),
+      );
+      await _refresh();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    }
+  }
+
   Future<void> _delete(ItemModel item) async {
+    if (!_canManageItems) return;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -94,13 +136,15 @@ class _ItemMasterScreenState extends State<ItemMasterScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Master Item')),
+      appBar: AppBar(title: Text(_title)),
       drawer: const AppDrawer(),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openForm(),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Item'),
-      ),
+      floatingActionButton: _canManageItems
+          ? FloatingActionButton.extended(
+              onPressed: () => _openForm(),
+              icon: const Icon(Icons.add),
+              label: const Text('Add Item'),
+            )
+          : null,
       body: _buildBody(),
     );
   }
@@ -134,7 +178,7 @@ class _ItemMasterScreenState extends State<ItemMasterScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _items.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final item = _items[index];
           return Card(
@@ -142,27 +186,43 @@ class _ItemMasterScreenState extends State<ItemMasterScreen> {
               leading: const CircleAvatar(child: Icon(Icons.category)),
               title: Text(item.name),
               subtitle: Text(
-                '${item.sku} - ${item.unit} - Stock ${item.currentStock}',
+                '${item.sku} - ${item.unit} - Stock ${_formatQuantity(item.currentStock)}',
               ),
-              trailing: Wrap(
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text('Rp ${item.sellingPrice.toStringAsFixed(0)}'),
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () => _openForm(item),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete),
-                    onPressed: () => _delete(item),
-                  ),
-                ],
-              ),
+              trailing: _buildTrailing(item),
             ),
           );
         },
       ),
     );
+  }
+
+  Widget? _buildTrailing(ItemModel item) {
+    if (_canManageItems) {
+      return Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text('Rp ${item.sellingPrice.toStringAsFixed(0)}'),
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => _openForm(item),
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: () => _delete(item),
+          ),
+        ],
+      );
+    }
+
+    if (_canPurchaseItems) {
+      return IconButton(
+        tooltip: 'Purchase',
+        icon: const Icon(Icons.shopping_cart_checkout),
+        onPressed: () => _purchase(item),
+      );
+    }
+
+    return Text('Rp ${item.sellingPrice.toStringAsFixed(0)}');
   }
 }
 
@@ -183,7 +243,6 @@ class _ItemFormDialogState extends State<_ItemFormDialog> {
   late final TextEditingController _unitController;
   late final TextEditingController _purchasePriceController;
   late final TextEditingController _sellingPriceController;
-  late final TextEditingController _currentStockController;
   late final TextEditingController _minimumStockController;
   late bool _isActive;
   bool _saving = false;
@@ -204,9 +263,6 @@ class _ItemFormDialogState extends State<_ItemFormDialog> {
     _sellingPriceController = TextEditingController(
       text: item == null ? '' : item.sellingPrice.toString(),
     );
-    _currentStockController = TextEditingController(
-      text: item == null ? '0' : item.currentStock.toString(),
-    );
     _minimumStockController = TextEditingController(
       text: item == null ? '0' : item.minimumStock.toString(),
     );
@@ -221,7 +277,6 @@ class _ItemFormDialogState extends State<_ItemFormDialog> {
     _unitController.dispose();
     _purchasePriceController.dispose();
     _sellingPriceController.dispose();
-    _currentStockController.dispose();
     _minimumStockController.dispose();
     super.dispose();
   }
@@ -237,10 +292,11 @@ class _ItemFormDialogState extends State<_ItemFormDialog> {
       unit: _unitController.text.trim(),
       purchasePrice: double.parse(_purchasePriceController.text),
       sellingPrice: double.parse(_sellingPriceController.text),
-      currentStock: int.parse(_currentStockController.text),
-      minimumStock: int.parse(_minimumStockController.text),
+      currentStock: widget.item?.currentStock ?? 0,
+      minimumStock: double.parse(_minimumStockController.text),
       isActive: _isActive,
     ).toJson();
+
     try {
       final id = widget.item?.id;
       if (id == null) {
@@ -276,15 +332,11 @@ class _ItemFormDialogState extends State<_ItemFormDialog> {
               _requiredField(_unitController, 'Unit'),
               _numberField(_purchasePriceController, 'Purchase Price'),
               _numberField(_sellingPriceController, 'Selling Price'),
-              _numberField(
-                _currentStockController,
-                'Current Stock',
-                integer: true,
-              ),
-              _numberField(
-                _minimumStockController,
-                'Minimum Stock',
-                integer: true,
+              _numberField(_minimumStockController, 'Minimum Stock'),
+              const SizedBox(height: 8),
+              const Text(
+                'Current stock is controlled by stock movements and purchases.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
               ),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
@@ -310,6 +362,101 @@ class _ItemFormDialogState extends State<_ItemFormDialog> {
   }
 }
 
+class _PurchaseRequest {
+  final double quantity;
+  final String notes;
+
+  const _PurchaseRequest({required this.quantity, required this.notes});
+}
+
+class _PurchaseDialog extends StatefulWidget {
+  final ItemModel item;
+
+  const _PurchaseDialog({required this.item});
+
+  @override
+  State<_PurchaseDialog> createState() => _PurchaseDialogState();
+}
+
+class _PurchaseDialogState extends State<_PurchaseDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _quantityController = TextEditingController(text: '1');
+    _notesController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (!_formKey.currentState!.validate()) return;
+    Navigator.pop(
+      context,
+      _PurchaseRequest(
+        quantity: double.parse(_quantityController.text),
+        notes: _notesController.text.trim(),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Purchase ${widget.item.name}'),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Available stock: ${_formatQuantity(widget.item.currentStock)}',
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _quantityController,
+              decoration: const InputDecoration(labelText: 'Quantity'),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                final quantity = double.tryParse(value ?? '');
+                if (quantity == null || quantity <= 0) {
+                  return 'Enter a valid quantity';
+                }
+                if (quantity > widget.item.currentStock) {
+                  return 'Quantity exceeds available stock';
+                }
+                return null;
+              },
+            ),
+            TextFormField(
+              controller: _notesController,
+              decoration: const InputDecoration(labelText: 'Notes'),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Purchase'),
+        ),
+      ],
+    );
+  }
+}
+
 TextFormField _requiredField(TextEditingController controller, String label) {
   return TextFormField(
     controller: controller,
@@ -319,20 +466,28 @@ TextFormField _requiredField(TextEditingController controller, String label) {
   );
 }
 
-TextFormField _numberField(
-  TextEditingController controller,
-  String label, {
-  bool integer = false,
-}) {
+TextFormField _numberField(TextEditingController controller, String label) {
   return TextFormField(
     controller: controller,
     decoration: InputDecoration(labelText: label),
     keyboardType: TextInputType.number,
-    validator: (value) {
-      final valid = integer
-          ? int.tryParse(value ?? '') != null
-          : double.tryParse(value ?? '') != null;
-      return valid ? null : 'Enter valid $label';
-    },
+    validator: (value) =>
+        double.tryParse(value ?? '') == null ? 'Enter valid $label' : null,
   );
 }
+
+String _formatQuantity(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+  return value.toStringAsFixed(2);
+}
+
+double _asDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0;
+}
+
+
+
+

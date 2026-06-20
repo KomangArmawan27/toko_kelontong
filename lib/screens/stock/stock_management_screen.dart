@@ -91,8 +91,7 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
               label: const Text('Retry'),
             ),
           ],
-        ),
-      );
+        ),      );
     }
     if (_movements.isEmpty) {
       return const Center(child: Text('No stock movements yet.'));
@@ -103,17 +102,31 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _movements.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final movement = _movements[index];
-          final isIn = movement.type.toLowerCase().contains('in');
+          final displayType = movement.type.toLowerCase();
+          final isIn = displayType == 'in';
+          final isAdjustment = displayType == 'adjustment';
           return Card(
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: isIn ? Colors.green[100] : Colors.orange[100],
+                backgroundColor: isAdjustment
+                    ? Colors.blue[100]
+                    : isIn
+                        ? Colors.green[100]
+                        : Colors.orange[100],
                 child: Icon(
-                  isIn ? Icons.add_box : Icons.indeterminate_check_box,
-                  color: isIn ? Colors.green : Colors.orange,
+                  isAdjustment
+                      ? Icons.tune
+                      : isIn
+                          ? Icons.add_box
+                          : Icons.indeterminate_check_box,
+                  color: isAdjustment
+                      ? Colors.blue
+                      : isIn
+                          ? Colors.green
+                          : Colors.orange,
                 ),
               ),
               title: Text(movement.itemName.isEmpty
@@ -122,7 +135,7 @@ class _StockManagementScreenState extends State<StockManagementScreen> {
               subtitle: Text(movement.notes.isEmpty
                   ? movement.type
                   : '${movement.type} - ${movement.notes}'),
-              trailing: Text('${isIn ? '+' : '-'}${movement.quantity}'),
+              trailing: Text(_formatQuantity(movement.quantity)),
             ),
           );
         },
@@ -165,13 +178,26 @@ class _StockFormDialogState extends State<_StockFormDialog> {
     try {
       final response = await ApiClient.instance.get('api/items');
       final items = dataList(response).map(ItemModel.fromJson).toList();
+      if (!mounted) return;
       setState(() {
         _items = items;
         _itemId = items.isEmpty ? null : items.first.id;
         _loadingItems = false;
       });
     } catch (_) {
+      if (!mounted) return;
       setState(() => _loadingItems = false);
+    }
+  }
+
+  double _stockAfter(double currentStock, double quantity) {
+    switch (_type) {
+      case 'out':
+        return currentStock - quantity;
+      case 'adjustment':
+        return quantity;
+      default:
+        return currentStock + quantity;
     }
   }
 
@@ -180,11 +206,9 @@ class _StockFormDialogState extends State<_StockFormDialog> {
     setState(() => _saving = true);
 
     final selectedItem = _items.firstWhere((item) => item.id == _itemId);
-    final quantity = int.parse(_quantityController.text);
+    final quantity = double.parse(_quantityController.text);
     final stockBefore = selectedItem.currentStock;
-    final stockAfter = _type == 'in'
-        ? stockBefore + quantity
-        : stockBefore - quantity;
+    final stockAfter = _stockAfter(stockBefore, quantity);
 
     final payload = StockMovement(
       itemId: _itemId,
@@ -227,7 +251,7 @@ class _StockFormDialogState extends State<_StockFormDialog> {
               )
             else
               DropdownButtonFormField<int>(
-                value: _itemId,
+                initialValue: _itemId,
                 decoration: const InputDecoration(labelText: 'Item'),
                 items: _items
                     .where((item) => item.id != null)
@@ -245,16 +269,24 @@ class _StockFormDialogState extends State<_StockFormDialog> {
               segments: const [
                 ButtonSegment(value: 'in', label: Text('In')),
                 ButtonSegment(value: 'out', label: Text('Out')),
+                ButtonSegment(value: 'adjustment', label: Text('Adjust')),
               ],
               selected: {_type},
               onSelectionChanged: (value) => setState(() => _type = value.first),
             ),
             TextFormField(
               controller: _quantityController,
-              decoration: const InputDecoration(labelText: 'Quantity'),
+              decoration: InputDecoration(
+                labelText: _type == 'adjustment' ? 'New Stock' : 'Quantity',
+              ),
               keyboardType: TextInputType.number,
-              validator: (value) =>
-                  int.tryParse(value ?? '') == null ? 'Enter valid quantity' : null,
+              validator: (value) {
+                final quantity = double.tryParse(value ?? '');
+                if (quantity == null || quantity <= 0) {
+                  return 'Enter valid quantity';
+                }
+                return null;
+              },
             ),
             TextFormField(
               controller: _notesController,
@@ -276,3 +308,11 @@ class _StockFormDialogState extends State<_StockFormDialog> {
     );
   }
 }
+
+String _formatQuantity(double value) {
+  if (value == value.roundToDouble()) {
+    return value.toInt().toString();
+  }
+  return value.toStringAsFixed(2);
+}
+

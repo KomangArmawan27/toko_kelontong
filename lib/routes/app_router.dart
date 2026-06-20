@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../screens/access_denied_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/auth/register_screen.dart';
 import '../screens/cash/cash_management_screen.dart';
@@ -6,9 +8,12 @@ import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/items/item_master_screen.dart';
 import '../screens/reports/reports_screen.dart';
 import '../screens/stock/stock_management_screen.dart';
+import '../services/api_client.dart';
 
 class AppRouter {
   static Route<dynamic> generateRoute(RouteSettings settings) {
+    final client = ApiClient.instance;
+
     switch (settings.name) {
       case '/login':
         return MaterialPageRoute(
@@ -30,13 +35,21 @@ class AppRouter {
 
       case '/cash':
         return MaterialPageRoute(
-          builder: (_) => const CashManagementScreen(),
+          builder: (_) => client.canManageCashTransactions
+              ? const CashManagementScreen()
+              : const AccessDeniedScreen(
+                  message: 'Cash management is only available for the shop owner and shop keeper.',
+                ),
           settings: settings,
         );
 
       case '/stock':
         return MaterialPageRoute(
-          builder: (_) => const StockManagementScreen(),
+          builder: (_) => client.canManageStockMovements
+              ? const StockManagementScreen()
+              : const AccessDeniedScreen(
+                  message: 'Stock management is only available for the shop owner and shop keeper.',
+                ),
           settings: settings,
         );
 
@@ -48,7 +61,11 @@ class AppRouter {
 
       case '/reports':
         return MaterialPageRoute(
-          builder: (_) => const ReportsScreen(),
+          builder: (_) => client.canViewReports
+              ? const ReportsScreen()
+              : const AccessDeniedScreen(
+                  message: 'Reports are only available for the shop owner.',
+                ),
           settings: settings,
         );
 

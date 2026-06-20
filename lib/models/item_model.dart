@@ -6,8 +6,8 @@ class ItemModel {
   final String unit;
   final double purchasePrice;
   final double sellingPrice;
-  final int currentStock;
-  final int minimumStock;
+  final double currentStock;
+  final double minimumStock;
   final bool isActive;
 
   ItemModel({
@@ -32,8 +32,8 @@ class ItemModel {
       unit: (json['unit'] ?? '').toString(),
       purchasePrice: _asDouble(json['purchase_price']),
       sellingPrice: _asDouble(json['selling_price']),
-      currentStock: _asInt(json['current_stock']) ?? 0,
-      minimumStock: _asInt(json['minimum_stock']) ?? 0,
+      currentStock: _asDouble(json['current_stock']),
+      minimumStock: _asDouble(json['minimum_stock']),
       isActive: _asBool(json['is_active']),
     );
   }
@@ -45,8 +45,7 @@ class ItemModel {
         'unit': unit,
         'purchase_price': purchasePrice,
         'selling_price': sellingPrice,
-        'current_stock': currentStock.toString(),
-        'minimum_stock': minimumStock.toString(),
+        'minimum_stock': minimumStock,
         'is_active': isActive,
       };
 }

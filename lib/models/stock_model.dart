@@ -3,9 +3,9 @@ class StockMovement {
   final int? itemId;
   final String itemName;
   final String type;
-  final int quantity;
-  final int stockBefore;
-  final int stockAfter;
+  final double quantity;
+  final double stockBefore;
+  final double stockAfter;
   final String notes;
   final DateTime? occurredAt;
 
@@ -30,9 +30,9 @@ class StockMovement {
       itemId: _asInt(json['item_id'] ?? itemMap?['id']),
       itemName: (itemMap?['name'] ?? json['item_name'] ?? '').toString(),
       type: (json['type'] ?? 'in').toString(),
-      quantity: _asInt(json['quantity']) ?? 0,
-      stockBefore: _asInt(json['stock_before']) ?? 0,
-      stockAfter: _asInt(json['stock_after']) ?? 0,
+      quantity: _asDouble(json['quantity']),
+      stockBefore: _asDouble(json['stock_before']),
+      stockAfter: _asDouble(json['stock_after']),
       notes: (json['notes'] ?? '').toString(),
       occurredAt: DateTime.tryParse(
         (json['occurred_at'] ?? '').toString(),
@@ -56,4 +56,9 @@ int? _asInt(Object? value) {
   if (value is num) return value.toInt();
   final text = value?.toString() ?? '';
   return int.tryParse(text) ?? double.tryParse(text)?.toInt();
+}
+
+double _asDouble(Object? value) {
+  if (value is num) return value.toDouble();
+  return double.tryParse(value?.toString() ?? '') ?? 0;
 }

@@ -7,13 +7,30 @@ class AppDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final client = ApiClient.instance;
+
     return Drawer(
       child: ListView(
         children: [
-          const DrawerHeader(
-            child: Text(
-              'Toko Kelontong',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          DrawerHeader(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Text(
+                  'Toko Kelontong',
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  client.currentUser?.name ?? 'Guest',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  client.currentUser?.label ?? 'Unknown Role',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
             ),
           ),
           _NavTile(
@@ -21,26 +38,29 @@ class AppDrawer extends StatelessWidget {
             title: 'Dashboard',
             route: '/',
           ),
-          _NavTile(
-            icon: Icons.inventory,
-            title: 'Stock Management',
-            route: '/stock',
-          ),
-          _NavTile(
-            icon: Icons.attach_money,
-            title: 'Cash Management',
-            route: '/cash',
-          ),
+          if (client.canManageStockMovements)
+            _NavTile(
+              icon: Icons.inventory,
+              title: 'Stock Management',
+              route: '/stock',
+            ),
+          if (client.canManageCashTransactions)
+            _NavTile(
+              icon: Icons.attach_money,
+              title: 'Cash Management',
+              route: '/cash',
+            ),
           _NavTile(
             icon: Icons.category,
-            title: 'Master Item',
+            title: client.isShopOwner ? 'Master Item' : 'Shop Items',
             route: '/items',
           ),
-          _NavTile(
-            icon: Icons.bar_chart,
-            title: 'Reports',
-            route: '/reports',
-          ),
+          if (client.canViewReports)
+            _NavTile(
+              icon: Icons.bar_chart,
+              title: 'Reports',
+              route: '/reports',
+            ),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.logout),

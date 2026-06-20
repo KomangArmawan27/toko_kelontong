@@ -123,7 +123,7 @@ class _CashManagementScreenState extends State<CashManagementScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _transactions.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
         itemBuilder: (context, index) {
           final item = _transactions[index];
           final isIncome = item.isCashIn;
@@ -314,3 +314,4 @@ String _date(DateTime date) {
 }
 
 String _money(double value) => 'Rp ${value.toStringAsFixed(0)}';
+
