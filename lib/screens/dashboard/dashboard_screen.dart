@@ -40,6 +40,12 @@ class DashboardScreen extends StatelessWidget {
                 icon: Icons.attach_money,
                 onTap: () => Navigator.pushNamed(context, '/cash'),
               ),
+            if (client.isShopOwner)
+              DashboardCard(
+                title: 'Users',
+                icon: Icons.people,
+                onTap: () => Navigator.pushNamed(context, '/users'),
+              ),
             if (client.canViewReports)
               DashboardCard(
                 title: 'Reports',

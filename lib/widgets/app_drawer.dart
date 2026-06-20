@@ -55,6 +55,12 @@ class AppDrawer extends StatelessWidget {
             title: client.isShopOwner ? 'Master Item' : 'Shop Items',
             route: '/items',
           ),
+          if (client.isShopOwner)
+            _NavTile(
+              icon: Icons.people,
+              title: 'Users Management',
+              route: '/users',
+            ),
           if (client.canViewReports)
             _NavTile(
               icon: Icons.bar_chart,

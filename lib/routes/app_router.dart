@@ -8,6 +8,7 @@ import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/items/item_master_screen.dart';
 import '../screens/reports/reports_screen.dart';
 import '../screens/stock/stock_management_screen.dart';
+import '../screens/users/users_management_screen.dart';
 import '../services/api_client.dart';
 
 class AppRouter {
@@ -56,6 +57,16 @@ class AppRouter {
       case '/items':
         return MaterialPageRoute(
           builder: (_) => const ItemMasterScreen(),
+          settings: settings,
+        );
+
+      case '/users':
+        return MaterialPageRoute(
+          builder: (_) => client.isShopOwner
+              ? const UsersManagementScreen()
+              : const AccessDeniedScreen(
+                  message: 'User management is only available for the shop owner.',
+                ),
           settings: settings,
         );
 

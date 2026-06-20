@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models/app_user.dart';
+import 'api_data.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -94,6 +95,17 @@ class ApiClient {
     return data;
   }
 
+  Future<List<AppUser>> listUsers() async {
+    final response = await get('api/users');
+    return dataList(response).map(AppUser.fromJson).toList();
+  }
+
+  Future<Map<String, dynamic>> updateUserRole(int userId, String role) {
+    return patch('api/users/$userId/role', {
+      'role': role,
+    });
+  }
+
   Future<Map<String, dynamic>> purchaseItem(
     int itemId, {
     required double quantity,
@@ -116,6 +128,10 @@ class ApiClient {
 
   Future<Map<String, dynamic>> put(String path, Map<String, dynamic> body) {
     return _send('PUT', path, body: body);
+  }
+
+  Future<Map<String, dynamic>> patch(String path, Map<String, dynamic> body) {
+    return _send('PATCH', path, body: body);
   }
 
   Future<Map<String, dynamic>> delete(String path) => _send('DELETE', path);
