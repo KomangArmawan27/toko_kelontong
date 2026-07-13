@@ -20,7 +20,7 @@ class ApiClient {
 
   static final ApiClient instance = ApiClient._();
 
-  static const String baseUrl = 'http://127.0.0.1:8000/';
+  static const String baseUrl = 'https://be-toko-kelontong-production.up.railway.app/';
 
   String? _token;
   AppUser? _currentUser;
